@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Louis's IPTV v5.0.0 Pro</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.0"></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-main: #0c0c0c;
+            --bg-sidebar: #121212;
+            --bg-card: #1e1e1e;
+            --accent: #E50914; 
+            --text-main: #FFFFFF;
+            --text-secondary: #aaaaaa;
+            --tv-focus: #007acc;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            font-family: Roboto, Helvetica, Arial, sans-serif; 
+            background: var(--bg-main); 
+            color: var(--text-main); 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+
+        /* --- ÉCRAN DE VERROUILLAGE OPTIMISÉ POUR TÉLÉCOMMANDE --- */
+        #lock-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #050505; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; z-index: 10000; padding: 20px;
+        }
+        .lock-box {
+            background: #161616; padding: 35px 25px; border-radius: 16px;
+            text-align: center; width: 100%; max-width: 440px; border: 1px solid #252525;
+        }
+        .lock-box h2 { font-size: 1.8rem; margin-bottom: 8px; font-weight: 800; }
+        .lock-box p { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 20px; }
+        
+        .info-premium-box {
+            background: rgba(229, 9, 20, 0.1); border: 1px dashed var(--accent);
+            padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: left;
+        }
+        .info-premium-box p { font-size: 0.85rem; color: #dddddd; line-height: 1.4; margin-bottom: 4px; }
+
+        .lock-box input {
+            width: 100%; padding: 14px; border: 2px solid #333; background: #222;
+            color: white; font-size: 1.2rem; text-align: center; border-radius: 8px; outline: none; margin-bottom: 15px;
+        }
+        .lock-box input:focus { border-color: var(--accent); background: #292929; }
+        
+        .lock-box button {
+            width: 100%; padding: 14px; border: none; background: var(--accent);
+            color: white; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer;
+        }
+        .lock-box button:focus { background: var(--tv-focus); box-shadow: 0 0 10px white; outline: none; }
+        .app-version-tag { font-size: 0.75rem; color: #555; margin-top: 20px; }
+
+        /* --- STRUCTURE INTERFACE GRAND ÉCRAN / TV --- */
+        .video-container { 
+            width: 100%; height: 40vh; background: #000; position: relative; flex-shrink: 0;
+        }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        
+        .player-controls-overlay {
+            position: absolute; top: 12px; left: 12px; right: 12px;
+            display: flex; justify-content: space-between; align-items: center; z-index: 10;
+        }
+        #channel-title { 
+            background: rgba(0, 0, 0, 0.85); padding: 8px 14px; border-radius: 8px; 
+            font-size: 0.85rem; font-weight: bold; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .player-btn {
+            background: rgba(0,0,0,0.85); color: white; border: 1px solid rgba(255,255,255,0.1);
+            padding: 8px; border-radius: 8px; cursor: pointer;
+        }
+        .player-btn:focus { background: var(--tv-focus); border-color: white; outline: none; }
+
+        .content-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-sidebar); overflow: hidden; }
+        .header-controls { padding: 14px; display: flex; flex-direction: column; gap: 10px; background: #141414; }
+        
+        .meta-status-bar { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: var(--text-secondary); }
+        .days-badge { background: #222; padding: 3px 8px; border-radius: 4px; font-weight: bold; color: #25D366; }
+
+        #search { 
+            width: 100%; padding: 12px; border: none; background: #202020; color: white; font-size: 0.95rem; border-radius: 8px; outline: none;
+        }
+        #search:focus { background: #282828; box-shadow: 0 0 0 2px var(--tv-focus); }
+
+        .categories-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px; }
+        .categories-bar::-webkit-scrollbar { height: 0px; }
+        
+        .category-pill {
+            background: #202020; color: var(--text-main); padding: 9px 16px; border-radius: 20px;
+            font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+        }
+        .category-pill:focus { background: var(--tv-focus); outline: none; color: white; }
+        .category-pill.active { background: var(--accent); color: white; }
+        .category-pill.gold-pill { background: linear-gradient(45deg, #b8860b, #ffd700); color: black; }
+
+        .grid-container { flex: 1; overflow-y: auto; padding: 14px; }
+        .channels-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+        
+        .channel-card { 
+            background: var(--bg-card); border-radius: 10px; cursor: pointer; 
+            border: 1px solid #262626; display: flex; flex-direction: column; justify-content: space-between; height: 90px; padding: 12px;
+        }
+        .channel-card:focus { 
+            background: var(--tv-focus) !important; border-color: white !important; outline: none; 
+        }
+        .channel-card.active { border-color: var(--accent); background: rgba(229, 9, 20, 0.12); }
+        
+        .channel-name { font-size: 0.85rem; font-weight: 600; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+        .channel-badge { font-size: 0.65rem; text-transform: uppercase; color: var(--accent); font-weight: 800; }
+        #status { padding: 40px; text-align: center; color: var(--text-secondary); }
+
+        /* Configuration Mode TV Paysage */
+        @media (min-width: 950px) {
+            body { flex-direction: row; }
+            .video-container { width: 60%; height: 100vh; }
+            .content-area { width: 40%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="lock-screen">
+        <div class="lock-box">
+            <h2>Louis's IPTV</h2>
+            <p>Système d'accès par abonnement</p>
+            
+            <div class="info-premium-box">
+                <p>• Abonnement 1 Mois : <b>2 000 FCFA</b></p>
+                <p>• Assistance WhatsApp : <b>+44 7529 440635</b></p>
+            </div>
+
+            <input type="text" id="access-code-input" placeholder="Code d'abonnement" tabindex="1">
+            <button id="submit-code-btn" tabindex="2">Activer l'accès</button>
+            <p id="error-msg" style="color: var(--accent); margin-top: 12px; display: none; font-weight: bold; font-size: 0.85rem;">⚠️ Code erroné ou expiré</p>
+            <div class="app-version-tag">Version logicielle : v5.0.0 Pro TV</div>
+        </div>
+    </div>
+
+    <div class="video-container">
+        <div class="player-controls-overlay">
+            <div id="channel-title">Sélectionnez une chaîne</div>
+            <button class="player-btn" id="external-btn" title="Lecteur Externe">
+                <span class="material-icons" style="font-size: 1.1rem;">open_in_new</span>
+            </button>
+        </div>
+        <video id="video" controls autoplay playsinline></video>
+    </div>
+
+    <div class="content-area">
+        <div class="header-controls">
+            <div class="meta-status-bar">
+                <span>Version: <b>v5.0.0 Pro</b></span>
+                <span id="expiration-badge" class="days-badge">Calcul...</span>
+            </div>
+            <input type="text" id="search" placeholder="Rechercher...">
+            
+            <div class="categories-bar" id="categories-bar">
+                <div class="category-pill active" data-cat="fr-all" tabindex="3">🇫🇷 France</div>
+                <div class="category-pill" data-cat="sport" tabindex="4">⚽ Sports</div>
+                <div class="category-pill" data-cat="cinema" tabindex="5">🎬 Films</div>
+                <div class="category-pill" data-cat="series" tabindex="6">🍿 Séries</div>
+                <div class="category-pill" data-cat="kids" tabindex="7">🧸 Jeunesse</div>
+                <div class="category-pill" data-cat="all" tabindex="8">🌍 Tout</div>
+            </div>
+        </div>
+
+        <div class="grid-container">
+            <div id="status">Chargement...</div>
+            <div class="channels-grid" id="channels-grid" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        const playlistUrl = "https://iptv-org.github.io/iptv/index.m3u";
+        
+        const lockScreen = document.getElementById('lock-screen');
+        const codeInput = document.getElementById('access-code-input');
+        const submitBtn = document.getElementById('submit-code-btn');
+        const errorMsg = document.getElementById('error-msg');
+        const expirationBadge = document.getElementById('expiration-badge');
+        const video = document.getElementById('video');
+        const channelsGrid = document.getElementById('channels-grid');
+        const channelTitle = document.getElementById('channel-title');
+        const searchInput = document.getElementById('search');
+        const statusDiv = document.getElementById('status');
+        
+        let allChannels = [];
+        let currentCategory = "fr-all";
+        let hls = null;
+        let currentChannelUrl = "";
+
+        const filters = {
+            sport: ['sport', 'soccer', 'espn', 'bein', 'match', 'rmc', 'eurosport'],
+            cinema: ['cine+', 'cinema', 'movie', 'film', 'action', 'polar+'],
+            series: ['series', 'novelas', 'comedie+'],
+            kids: ['disney', 'cartoon', 'nickelodeon', 'gulli', 'jeunesse', 'kids']
+        };
+
+        function checkSubscriptionStatus() {
+            const expiryTime = localStorage.getItem('louis_iptv_expiry');
+            if (!expiryTime) return false;
+            if (expiryTime === "lifetime") {
+                expirationBadge.innerText = "Abonnement : À Vie 👑";
+                return true;
+            }
+            const timeLeft = parseInt(expiryTime) - Date.now();
+            if (timeLeft <= 0) return false;
+            expirationBadge.innerText = Math.ceil(timeLeft / (1000 * 60 * 60 * 24)) + " jours restants";
+            return true;
+        }
+
+        function processActivation() {
+            const code = codeInput.value.trim();
+            let isValid = false;
+
+            if (code === "jade2016") {
+                localStorage.setItem('louis_iptv_expiry', 'lifetime');
+                isValid = true;
+            } else {
+                const match = code.match(/^M([1-9]|1[0-2])jade2016$/);
+                if (match) {
+                    let months = parseInt(match[1]);
+                    localStorage.setItem('louis_iptv_expiry', (Date.now() + (months * 30 * 24 * 60 * 60 * 1000)).toString());
+                    isValid = true;
+                }
+            }
+
+            if (isValid) {
+                lockScreen.style.display = 'none';
+                launchSystem();
+            } else {
+                errorMsg.style.display = 'block';
+            }
+        }
+
+        if (checkSubscriptionStatus()) {
+            lockScreen.style.display = 'none';
+            launchSystem();
+        }
+
+        submitBtn.addEventListener('click', processActivation);
+        codeInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') processActivation(); });
+
+        function launchSystem() {
+            checkAndBuildWorldCupCategory();
+            fetchData();
+        }
+
+        function checkAndBuildWorldCupCategory() {
+            if (new Date() <= new Date('2026-07-21')) {
+                const bar = document.getElementById('categories-bar');
+                const wcPill = document.createElement('div');
+                wcPill.className = 'category-pill gold-pill';
+                wcPill.setAttribute('data-cat', 'worldcup');
+                wcPill.innerText = '🏆 Coupe du Monde';
+                bar.insertBefore(wcPill, bar.children[1]);
+                wcPill.addEventListener('click', () => { changeCategory(wcPill, 'worldcup'); });
+            }
+        }
+
+        function fetchData() {
+            fetch(playlistUrl).then(r => r.text()).then(data => {
+                allChannels = parseM3U(data);
+                statusDiv.style.display = "none";
+                channelsGrid.style.display = "grid";
+                filterAndDisplay();
+            }).catch(() => { statusDiv.innerText = "Erreur réseau."; });
+        }
+
+        function parseM3U(text) {
+            const lines = text.split('\n');
+            const channels = [];
+            let currentName = "";
+            const wcKeywords = ['tf1', 'm6', 'bein sport', 'bbc', 'fox sport', 'zdf', 'ard', 'espn'];
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].trim();
+                if (line.startsWith('#EXTINF:')) {
+                    currentName = line.substring(line.lastIndexOf(',') + 1).trim();
+                } else if (line.startsWith('http')) {
+                    if (currentName) {
+                        let ln = currentName.toLowerCase();
+                        let cat = "general";
+                        let isFr = ln.includes('(fr)') || ln.includes('france') || ln.includes('french');
+                        let isWc = wcKeywords.some(kw => ln.includes(kw));
+
+                        for (let k in filters) {
+                            if (filters[k].some(kw => ln.includes(kw))) { cat = k; break; }
+                        }
+                        channels.push({ name: currentName, url: line, category: cat, isFr: isFr, isWc: isWc });
+                        currentName = "";
+                    }
+                }
+            }
+            return channels;
+        }
+
+        function filterAndDisplay() {
+            const query = searchInput.value.toLowerCase();
+            const filtered = allChannels.filter(c => {
+                const m = c.name.toLowerCase().includes(query);
+                if (currentCategory === "fr-all") return m && c.isFr;
+                if (currentCategory === "worldcup") return m && c.isWc;
+                if (currentCategory === "all") return m;
+                return m && (c.category === currentCategory);
+            });
+            displayGrid(filtered);
+        }
+
+        function displayGrid(channels) {
+            channelsGrid.innerHTML = "";
+            channels.slice(0, 150).forEach((channel, idx) => {
+                const card = document.createElement('div');
+                card.className = 'channel-card';
+                card.setAttribute('tabindex', 50 + idx);
+                card.innerHTML = `<div class="channel-badge">TV</div><div class="channel-name">${channel.name}</div>`;
+                card.addEventListener('click', () => { playChannel(channel); });
+                channelsGrid.appendChild(card);
+            });
+        }
+
+        function playChannel(channel) {
+            channelTitle.innerText = "Lecture : " + channel.name;
+            currentChannelUrl = channel.url;
+            
+            if (hls) hls.destroy();
+
+            if (Hls.isSupported()) {
+                hls = new Hls({ maxMaxBufferLength: 30, enableWorker: true });
+                hls.loadSource(channel.url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(()=>{}); });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = channel.url;
+                video.play().catch(()=>{});
+            }
+        }
+
+        function changeCategory(pill, cat) {
+            document.querySelectorAll('.category-pill').forEach(p => p.classList.remove('active'));
+            pill.classList.add('active');
+            currentCategory = cat;
+            filterAndDisplay();
+        }
+
+        document.querySelectorAll('.category-pill').forEach(pill => {
+            pill.addEventListener('click', () => { changeCategory(pill, pill.getAttribute('data-cat')); });
+        });
+
+        searchInput.addEventListener('input', filterAndDisplay);
+        document.getElementById('external-btn').addEventListener('click', () => { if(currentChannelUrl) window.open(currentChannelUrl, '_blank'); });
+    </script>
+</body>
+</html>
